@@ -21,7 +21,7 @@ public:
 	 */
 	static inline IBrickGridPlugin& Get()
 	{
-		return FModuleManager::LoadModuleChecked< IBrickGridPlugin >( "BrickGridPlugin" );
+		return FModuleManager::LoadModuleChecked< IBrickGridPlugin >( "BrickGrid" );
 	}
 
 	/**
@@ -31,7 +31,7 @@ public:
 	 */
 	static inline bool IsAvailable()
 	{
-		return FModuleManager::Get().IsModuleLoaded( "BrickGridPlugin" );
+		return FModuleManager::Get().IsModuleLoaded( "BrickGrid" );
 	}
 };
 

@@ -7,4 +7,4 @@
 // add includes for headers that are used in most of your module's source files though.
 #include "IBrickGridPlugin.h"
 
-#include "BrickGridComponent.h"
+#include "BrickChunkComponent.h"
