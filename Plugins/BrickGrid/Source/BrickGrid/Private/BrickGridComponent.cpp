@@ -52,20 +52,10 @@ struct FBrickVertex
 	uint8 Y;
 	uint8 Z;
 	uint8 Padding0;
-	uint8 U;
-	uint8 V;
-	uint8 Padding1;
-	uint8 Padding2;
-	FPackedNormal TangentX;
-	FPackedNormal TangentZ;
-	FBrickVertex(const FIntVector& XYZ, const FIntVector& UV, const FVector& InTangentX, const FVector& InTangentZ)
+	FBrickVertex(const FIntVector& XYZ)
 	: X(XYZ.X)
 	, Y(XYZ.Y)
 	, Z(XYZ.Z)
-	, U(UV.X)
-	, V(UV.Y)
-	, TangentX(FVector(InTangentX))
-	, TangentZ(FVector(InTangentZ))
 	{}
 };
 
@@ -114,9 +104,9 @@ public:
 		// Initialize the vertex factory's stream components.
 		DataType NewData;
 		NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, X, VET_UByte4N);
-		NewData.TextureCoordinates.Add(STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, U, VET_UByte4N));
-		NewData.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, TangentX, VET_PackedNormal);
-		NewData.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, TangentZ, VET_PackedNormal);
+		NewData.TextureCoordinates.Add(STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, X, VET_UByte4N));
+		NewData.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, X, VET_PackedNormal);
+		NewData.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(&VertexBuffer, FBrickVertex, X, VET_PackedNormal);
 		check(!IsInRenderingThread());
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			InitBrickGridVertexFactory,
@@ -190,41 +180,37 @@ public:
 								const uint32 BrickMaterial = Component->GetBrick(X,Y,Z);
 								if (BrickMaterial != Component->GetEmptyMaterialIndex())
 								{
+									bool HasVisibleFace = false;
+
+									const uint32 BaseBrickVertexIndex = VertexBuffer.Vertices.Num();
 									for (uint32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
 									{
 										// Only draw faces that face empty bricks.
 										const FIntVector FrontBrickXYZ = FIntVector(X, Y, Z) + FaceNormal[FaceIndex];
 										if (Component->GetBrick(FrontBrickXYZ) == Component->GetEmptyMaterialIndex())
 										{
-											// Compute the tangent basis for the face.
-											const FVector FaceTangentX(BrickVertices[FaceVertices[FaceIndex][2]] - BrickVertices[FaceVertices[FaceIndex][0]]);
-											const FVector FaceTangentZ = (FVector)FaceNormal[FaceIndex];
-											const FPackedNormal PackedFaceTangentX(FaceTangentX);
-											const FPackedNormal PackedFaceTangentZ(FaceTangentZ);
-
-											// Write the vertices for the brick face.
-											const uint32 BaseFaceVertexIndex = VertexBuffer.Vertices.Num();
-											for (uint32 FaceVertexIndex = 0; FaceVertexIndex < 4; ++FaceVertexIndex)
-											{
-												const FIntVector Position = FIntVector(ChunkX, ChunkY, ChunkZ) + BrickVertices[FaceVertices[FaceIndex][FaceVertexIndex]];
-												new(VertexBuffer.Vertices) FBrickVertex(
-													Position,
-													FaceUVs[FaceVertexIndex],
-													PackedFaceTangentX,
-													PackedFaceTangentZ
-													);
-
-												// Include the vertex in the batch's bounding box.
-												MaterialBatches[BrickMaterial].Bounds[FaceIndex] += (FVector)Position;
-											}
+											HasVisibleFace = true;
 
 											// Write the indices for the brick face.
-											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseFaceVertexIndex + 0);
-											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseFaceVertexIndex + 1);
-											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseFaceVertexIndex + 2);
-											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseFaceVertexIndex + 0);
-											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseFaceVertexIndex + 2);
-											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseFaceVertexIndex + 3);
+											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseBrickVertexIndex + FaceVertices[FaceIndex][0]);
+											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseBrickVertexIndex + FaceVertices[FaceIndex][1]);
+											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseBrickVertexIndex + FaceVertices[FaceIndex][2]);
+											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseBrickVertexIndex + FaceVertices[FaceIndex][0]);
+											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseBrickVertexIndex + FaceVertices[FaceIndex][2]);
+											MaterialBatches[BrickMaterial].Indices[FaceIndex].Add(BaseBrickVertexIndex + FaceVertices[FaceIndex][3]);
+										}
+									}
+
+									if(HasVisibleFace)
+									{
+										// Write the vertices for the brick.
+										for (uint32 BrickVertexIndex = 0; BrickVertexIndex < 8; ++BrickVertexIndex)
+										{
+											const FIntVector Position = FIntVector(ChunkX, ChunkY, ChunkZ) + BrickVertices[BrickVertexIndex];
+											new(VertexBuffer.Vertices) FBrickVertex(Position);
+
+											// Include the vertex in the batch's bounding box.
+											//MaterialBatches[BrickMaterial].Bounds[FaceIndex] += (FVector)Position;
 										}
 									}
 								}
